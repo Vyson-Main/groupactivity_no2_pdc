@@ -1,49 +1,34 @@
-"""
-Analog-to-Digital Parallel Challenge
-Real-World Scenario: Hospital Lab - Sequential vs Parallel Blood Sample Analysis
-
-Sequential: One lab technician processes all blood samples one by one.
-Parallel: Multiple lab technicians each process a subset of samples simultaneously.
-"""
-
 import time
 import random
 import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
-# ─── Simulation Parameters ────────────────────────────────────────────────────
 NUM_SAMPLES = 200          # Total blood samples to analyze
 NUM_WORKERS = 4            # Number of parallel lab technicians (threads)
 ANALYSIS_TIME = 0.01       # Simulated time (seconds) per sample analysis step
 
-# Shared result store + lock (critical section)
 results = {}
 results_lock = threading.Lock()
 
-# ─── Work Unit ────────────────────────────────────────────────────────────────
+
 def analyze_sample(sample_id: int) -> dict:
     """
     Simulates the analysis of a single blood sample.
     Each sample goes through: centrifuge → measure → classify.
     This is the smallest independent unit of computation.
     """
-    # Step 1: Centrifuge simulation
     time.sleep(ANALYSIS_TIME)
     rbc = round(random.uniform(4.0, 6.0), 2)   # Red blood cells (M/uL)
 
-    # Step 2: Measurement
     time.sleep(ANALYSIS_TIME)
     wbc = round(random.uniform(4.5, 11.0), 2)  # White blood cells (K/uL)
 
-    # Step 3: Classification
     time.sleep(ANALYSIS_TIME)
     status = "Normal" if 4.5 <= wbc <= 11.0 and 4.0 <= rbc <= 6.0 else "Abnormal"
 
     return {"sample_id": sample_id, "RBC": rbc, "WBC": wbc, "status": status}
 
-
-# ─── Sequential Version ───────────────────────────────────────────────────────
 def run_sequential(num_samples: int) -> float:
     """One technician processes all samples one at a time."""
     print(f"\n[SEQUENTIAL] Processing {num_samples} samples with 1 worker...")
@@ -57,8 +42,6 @@ def run_sequential(num_samples: int) -> float:
     print(f"[SEQUENTIAL] Done. Time: {elapsed:.4f}s | Samples processed: {len(seq_results)}")
     return elapsed
 
-
-# ─── Parallel Version ─────────────────────────────────────────────────────────
 def worker_task(sample_ids: list) -> list:
     """Each worker (thread) processes its assigned partition of samples."""
     local_results = []
@@ -72,7 +55,6 @@ def run_parallel(num_samples: int, num_workers: int) -> float:
     """Multiple technicians each process a partition of samples concurrently."""
     print(f"\n[PARALLEL]   Processing {num_samples} samples with {num_workers} workers...")
 
-    # Data partitioning: divide samples evenly among workers
     partitions = [[] for _ in range(num_workers)]
     for sid in range(num_samples):
         partitions[sid % num_workers].append(sid)
@@ -84,7 +66,6 @@ def run_parallel(num_samples: int, num_workers: int) -> float:
         futures = {executor.submit(worker_task, part): i for i, part in enumerate(partitions)}
         for future in as_completed(futures):
             worker_results = future.result()
-            # CRITICAL SECTION: safely merge worker results into shared store
             with results_lock:
                 for r in worker_results:
                     par_results[r["sample_id"]] = r
@@ -93,8 +74,6 @@ def run_parallel(num_samples: int, num_workers: int) -> float:
     print(f"[PARALLEL]   Done. Time: {elapsed:.4f}s | Samples processed: {len(par_results)}")
     return elapsed
 
-
-# ─── Benchmark Report ─────────────────────────────────────────────────────────
 def benchmark():
     print("=" * 60)
     print("   HOSPITAL LAB SAMPLE ANALYSIS — BENCHMARK REPORT")
